@@ -41,5 +41,8 @@
     "app",
     "packages/*"
   ],
-  "packageManager": "npm@11.3.0"
+  "packageManager": "npm@11.3.0",
+  "dependencies": {
+    "dialog-hooks": "^0.0.1"
+  }
 }

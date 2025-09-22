@@ -57,7 +57,7 @@ const PianoRollWrapper: FC = () => {
   const ref = useRef(null)
   const size = useComponentSize(ref)
 
-  const alphaRef = useRef(null)
+  const alphaRef = useRef<HTMLDivElement>(null)
   const { height: alphaHeight = 0 } = useComponentSize(alphaRef)
   const keyWidth = isRhythmTrack
     ? Layout.keyWidth + Layout.drumKeysWidth
@@ -87,22 +87,26 @@ const PianoRollWrapper: FC = () => {
   const onClickScaleResetVertical = useCallback(() => setScaleY(1), [setScaleY])
 
   const onWheel = useCallback(
-    (e: React.WheelEvent) => {
+    (e: WheelEvent) => {
+      // Prevent browser back/forward navigation on horizontal touchpad scrolling
+      e.preventDefault()
+      e.stopPropagation()
+      
       if (e.shiftKey && (e.altKey || e.ctrlKey)) {
         // vertical zoom
-        let scaleYDelta = isTouchPadEvent(e.nativeEvent)
+        let scaleYDelta = isTouchPadEvent(e)
           ? 0.02 * e.deltaY
           : 0.01 * e.deltaX
         scaleYDelta = clamp(scaleYDelta, -0.15, 0.15) // prevent acceleration to zoom too fast
-        scaleAroundPointY(scaleYDelta, e.nativeEvent.offsetY)
+        scaleAroundPointY(scaleYDelta, e.offsetY)
       } else if (e.altKey || e.ctrlKey) {
         // horizontal zoom
-        const scaleFactor = isTouchPadEvent(e.nativeEvent) ? 0.01 : -0.01
+        const scaleFactor = isTouchPadEvent(e) ? 0.01 : -0.01
         const scaleXDelta = clamp(e.deltaY * scaleFactor, -0.15, 0.15) // prevent acceleration to zoom too fast
-        scaleAroundPointX(scaleXDelta, e.nativeEvent.offsetX)
+        scaleAroundPointX(scaleXDelta, e.offsetX)
       } else {
         // scrolling
-        const scaleFactor = isTouchPadEvent(e.nativeEvent)
+        const scaleFactor = isTouchPadEvent(e)
           ? 1
           : transform.pixelsPerKey * WHEEL_SCROLL_RATE
         const deltaY = e.deltaY * scaleFactor
@@ -130,6 +134,18 @@ const PianoRollWrapper: FC = () => {
     [setActivePane],
   )
 
+  // Add native wheel event listener to prevent passive event issues
+  useEffect(() => {
+    const alphaElement = alphaRef.current
+    if (!alphaElement) return
+
+    alphaElement.addEventListener("wheel", onWheel, { passive: false })
+
+    return () => {
+      alphaElement.removeEventListener("wheel", onWheel)
+    }
+  }, [onWheel])
+
   return (
     <Parent ref={ref}>
       <StyledSplitPane
@@ -139,7 +155,6 @@ const PianoRollWrapper: FC = () => {
         onChange={onChangeSplitPane}
       >
         <Alpha
-          onWheel={onWheel}
           ref={alphaRef}
           {...keyboardShortcutProps}
           onFocus={onFocusNotes}

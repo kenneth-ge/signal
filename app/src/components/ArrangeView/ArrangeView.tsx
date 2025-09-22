@@ -100,7 +100,7 @@ export const ArrangeView: FC = () => {
   const selectTrack = useSelectTrack()
   const rulerSelectionGesture = useRulerSelectionGesture()
 
-  const ref = useRef(null)
+  const ref = useRef<HTMLDivElement>(null)
   const size = useComponentSize(ref)
 
   const setScrollLeft = useCallback(
@@ -151,21 +151,25 @@ export const ArrangeView: FC = () => {
     useContextMenu()
 
   const onWheel = useCallback(
-    (e: React.WheelEvent) => {
+    (e: WheelEvent) => {
+      // Prevent browser back/forward navigation on horizontal touchpad scrolling
+      e.preventDefault()
+      e.stopPropagation()
+      
       if (e.shiftKey && (e.altKey || e.ctrlKey)) {
         // vertical zoom
-        let scaleYDelta = isTouchPadEvent(e.nativeEvent)
+        let scaleYDelta = isTouchPadEvent(e)
           ? 0.02 * e.deltaY
           : 0.01 * e.deltaX
         scaleYDelta = clamp(scaleYDelta, -0.15, 0.15) // prevent acceleration to zoom too fast
         setScaleY(scaleY * (1 + scaleYDelta))
       } else if (e.altKey || e.ctrlKey) {
         // horizontal zoom
-        const scaleFactor = isTouchPadEvent(e.nativeEvent) ? 0.01 : -0.01
+        const scaleFactor = isTouchPadEvent(e) ? 0.01 : -0.01
         const scaleXDelta = clamp(e.deltaY * scaleFactor, -0.15, 0.15) // prevent acceleration to zoom too fast
-        scaleAroundPointX(scaleXDelta, e.nativeEvent.offsetX)
+        scaleAroundPointX(scaleXDelta, e.offsetX)
       } else {
-        const scaleFactor = isTouchPadEvent(e.nativeEvent)
+        const scaleFactor = isTouchPadEvent(e)
           ? 1
           : 20 * transform.pixelsPerKey * WHEEL_SCROLL_RATE
         const deltaY = e.deltaY * scaleFactor
@@ -179,6 +183,18 @@ export const ArrangeView: FC = () => {
     setPath("/track")
     selectTrack(trackId)
   }
+
+  // Add native wheel event listener to prevent passive event issues
+  useEffect(() => {
+    const containerElement = ref.current
+    if (!containerElement) return
+
+    containerElement.addEventListener("wheel", onWheel, { passive: false })
+
+    return () => {
+      containerElement.removeEventListener("wheel", onWheel)
+    }
+  }, [onWheel])
 
   return (
     <Wrapper>
@@ -219,7 +235,6 @@ export const ArrangeView: FC = () => {
       >
         <div
           ref={ref}
-          onWheel={onWheel}
           style={{
             display: "flex",
             flexGrow: 1,
